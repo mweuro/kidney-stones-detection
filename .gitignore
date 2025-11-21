@@ -2,4 +2,8 @@
 data/
 data_preprocessed/
 *.pt
+<<<<<<< HEAD
 *weights/
+=======
+runs/
+>>>>>>> c5b623d2b55ac0c30fa2a3916058a1e1be11d69d
