@@ -1,3 +1,5 @@
 .venv/
 data/
 data_preprocessed/
+*.pt
+runs/

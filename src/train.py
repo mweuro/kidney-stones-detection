@@ -1,53 +1,41 @@
-import datetime
-import os
-import shutil
+from argparse import ArgumentParser
+from datetime import datetime
+from xml.parsers.expat import model
 import torch
+from ultralytics import YOLO
+import yaml
 
 
-def train_yolo_model(epochs=50, batch_size=16, img_size=640, lr0=0.01):
-    # Check for CUDA availability
-    device = '0' if torch.cuda.is_available() else 'cpu'
-    
-    # Define timestamp for unique model naming
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_name = f'train_{timestamp}'
-    
-    # Load the model
-    try:
-        model = YOLO('yolo12n.pt')
-        model_type = 'yolo12n'
-    except Exception:
-        model = YOLO('yolov8n.pt')
-        model_type = 'yolov8n'
-    
-    # Train the model
-    results = model.train(
-        data=data_yaml_path,
-        epochs=epochs,
-        batch=batch_size,
-        imgsz=img_size,
-        patience=10,
-        save=True,
-        device=device,
-        project=os.path.join(base_dir, 'runs'),
-        name=run_name,
-        lr0=lr0,
-        lrf=0.01,
-        plots=True,
-        save_period=5
+# Load config
+with open('config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+
+# Automatic device selection
+device = "0" if torch.cuda.is_available() else "cpu"
+config['train']['device'] = device
+config['validate']['device'] = device
+
+
+
+if __name__ == '__main__':
+    parser = ArgumentParser(
+        prog="Kidney stone detection",
+        description="Train and validate a YOLO model using specified configurations."
     )
+    parser.add_argument('--model-name', 
+                        type=str, 
+                        default="yolov8n.pt",
+                        help="Name of the YOLO model to use (default: yolov8n.pt)")
+    parser.add_argument('--data',
+                        type=str, 
+                        default="data_preprocessed/data.yaml",
+                        help="Path to the dataset YAML file (default: data_preprocessed/data.yaml)")
+    args = parser.parse_args()
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    name_train = f"train_{args.model_name.split('.')[0]}_{args.data.split('/')[0]}_{timestamp}"
+    name_val = f"val_{args.model_name.split('.')[0]}_{args.data.split('/')[0]}_{timestamp}"
     
-    # Save the model
-    model_save_path = os.path.join(model_save_dir, f"{model_type}_{timestamp}.pt")
-    
-    try:
-        model.model.save(model_save_path)
-    except AttributeError:
-        try:
-            model.save(model_save_path)
-        except Exception:
-            best_model_path = os.path.join(base_dir, 'runs', run_name, 'weights', 'best.pt')
-            if os.path.exists(best_model_path):
-                shutil.copy2(best_model_path, model_save_path)
-    
-    return model
+    model = YOLO(args.model_name)
+    model.train(data=args.data, name=name_train, **config['train'])
+    model.val(data=args.data, name=name_val, **config['validate'])
